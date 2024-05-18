@@ -1,0 +1,11 @@
+<RCC>
+  <qresource prefix="spechtLab Logo">
+    <file>logo-main.png</file>
+  </qresource>
+  <qresource prefix="dowaksa Logo"/>
+  <qresource prefix="vestel">
+    <file>vestel_logo.png</file>
+    <file>kurutma_wireFrame.JPG</file>
+    <file>kurutma.jpg</file>
+  </qresource>
+</RCC>
