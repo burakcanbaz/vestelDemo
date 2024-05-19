@@ -1,22 +1,33 @@
 import sys
 from PySide6.QtWidgets import QApplication, QMainWindow, QGraphicsScene, QGraphicsView, QGraphicsPixmapItem, QVBoxLayout, QFrame, QGraphicsTextItem
-from PySide6.QtGui import QPixmap, QPen, QColor, QPainter
+from PySide6.QtGui import QPixmap, QPen, QColor, QPainter, QWheelEvent, QTransform
 from PySide6.QtCore import Qt
 
 
 class CustomGraphicsView(QGraphicsView):
     def __init__(self, *args):
         super().__init__(*args)
-        self.setRenderHint(QPainter.Antialiasing)
-        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+        # self.setRenderHint(QPainter.Antialiasing)
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse) # scaling according to under of current mouse position
         self.setResizeAnchor(QGraphicsView.AnchorUnderMouse)
-        self.scale_factor = 1.2
+        self.min_zoom = 1.0
+        self.max_zoom = 3.0
 
-    def wheelEvent(self, event):
-        if event.angleDelta().y() > 0:
-            self.scale(self.scale_factor, self.scale_factor)
-        else:
-            self.scale(1 / self.scale_factor, 1 / self.scale_factor)
+    def wheelEvent(self, event: QWheelEvent):
+        # Mevcut zoom seviyesini al
+        current_zoom = self.transform().m22()
+
+        # Fare tekerleği olayından kaydırma değerini al
+        delta = event.angleDelta().y() / 120
+
+        # Yeni zoom seviyesini hesapla
+        new_zoom = current_zoom + delta * 0.1
+
+        # Yeni zoom seviyesini minimum ve maksimum zoom seviyeleri arasında sınırla
+        new_zoom = min(max(new_zoom, self.min_zoom), self.max_zoom)
+
+        # Yeni zoom seviyesini ayarla
+        self.setTransform(QTransform().scale(new_zoom, new_zoom))
 
 class graphOnImage(QFrame):
     def __init__(self):
@@ -30,28 +41,31 @@ class graphOnImage(QFrame):
         layout = QVBoxLayout(self)
         layout.addWidget(self.view)
 
-        # self.setStyleSheet("background-color: white;")  # Arka plan rengini beyaza ayarla
+        self.setStyleSheet("QFrame { border: none; background: transparent; }")
+ 
+        self._addPhotoToScene()
+        self._setPositionOfPhoto()
 
-        # Fotoğrafı yükle
+    def _addPhotoToScene(self):
         photo = QPixmap("C:\\Users\\Burak\\Desktop\\kurutma.jpg")
-        photo_height = 800
-        photo_width = int(photo.width() * (photo_height / photo.height())) + 100
-        self.photo = QGraphicsPixmapItem(photo.scaled(photo_width, photo_height))
+        self.photo_height = 800
+        self.photo_width = int(photo.width() * (self.photo_height / photo.height())) + 100
+        self.photo = QGraphicsPixmapItem(photo.scaled(self.photo_width, self.photo_height))  # can be manipulate this image as a another graphic item on QGraphicScene. 
         self.scene.addItem(self.photo)
 
-        # Fotoğrafı arayüzün tam ortasına yerleştir
-        self.photo.setPos((self.view.width() - photo_width) / 2, (self.view.height() - photo_height) / 2)
-
-        # Grafik fotoğrafın genişliğine eşitlenecek
-        self.graph_width = photo_width
-        self.graph_height = 50  # Grafik yüksekliği
+    def _setPositionOfPhoto(self):
+        # set photo to center of the QFrame
+        self.photo.setPos((self.view.width() - self.photo_width) / 2, (self.view.height() - self.photo_height) / 2) # 11, 160
+        # graphic width setted the equal size of photo
+        self.graph_width = self.photo_width
+        self.graph_height = 50  # height of graphic
         self.graph_left = (self.view.width() - self.graph_width) / 2
-        self.graph_top = (self.view.height() + photo_height) / 2 - 188 # Fotoğrafın altından başlayacak
+        self.graph_top = (self.view.height() + self.photo_height) / 2 - 188 # Fotoğrafın altından başlayacak
 
-        # Grafik çizimi için yatay çizgi oluştur
+        # create one-axis graphic line 
         self.draw_horizontal_line()
 
-        # Grafik üzerinde 1'den 10'a kadar olan sayılar
+        # draw ticks on to one-axis graphic line
         self.draw_ticks()
 
     def draw_horizontal_line(self):
@@ -60,16 +74,15 @@ class graphOnImage(QFrame):
         line = self.scene.addLine(self.graph_left, self.graph_top, self.graph_left + self.graph_width, self.graph_top, pen)
 
     def draw_ticks(self):
-        partsOfImage = [10, 20, 30, 40, 50, 60]
         pen = QPen(Qt.black)
         pen.setWidth(1)
-        for i in range(1, 30):
+        for i in range(0, 31):
             x_position = self.graph_left + i * (self.graph_width / 30)
-            tick_line = self.scene.addLine(x_position, self.graph_top - 5, x_position, self.graph_top + 5, pen)
+            self.scene.addLine(x_position, self.graph_top - 5, x_position, self.graph_top + 5, pen)
 
             # Dikey tireler
             if i % 5 == 0:
-                tick_line = self.scene.addLine(x_position, self.graph_top - 30, x_position, self.graph_top + 50, pen)
+                self.scene.addLine(x_position, self.graph_top - 30, x_position, self.graph_top + 50, pen)
                 text_item = QGraphicsTextItem(str(i * 2) + 'cm')
                 text_item.setDefaultTextColor(Qt.white)
                 fnt = self.view.font()
@@ -89,7 +102,7 @@ class graphOnImage(QFrame):
             
             if (i * 2) % 8 == 0:
                 text_item1.setDefaultTextColor(Qt.red)
-                rect_item = self.scene.addRect(
+                self.scene.addRect(
                     x_position - (self.graph_width / 60) - (self.graph_width / 60),  # Center the rectangle on the tick
                     self.graph_top - 29,  # Adjust as necessary to fit the region
                     2 * (self.graph_width / 30),  # Width of the rectangle
